@@ -1,0 +1,112 @@
+package com.dascom.test;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import org.bson.Document;
+import org.bson.conversions.Bson;
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.MongoDbFactory;
+import org.springframework.data.mongodb.core.convert.DbRefResolver;
+import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
+import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
+import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
+import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
+
+import com.dascom.entities.UserDO;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
+import com.mongodb.WriteConcern;
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoIterable;
+import com.mongodb.client.model.Filters;
+
+import cn.hutool.json.JSONObject;
+
+public class TestMongo2 {
+	public static void main(String[] args) {
+		List<String> host=new ArrayList<>();
+		host.add("192.168.11.249");
+		host.add("192.168.11.249");
+		host.add("192.168.11.249");
+	    List<Integer> port=new ArrayList<>();
+	    port.add(30010);
+	    port.add(30011);
+	    port.add(30012);
+		/* 建立与mongodb数据库的连接，可指定参数，如：MongoClient client = new MongoClient(“localhost”,27017); */
+		MongoClientOptions.Builder builder = new MongoClientOptions.Builder();
+		builder.threadsAllowedToBlockForConnectionMultiplier(10);
+		MongoClientOptions mongoClientOptions = builder.build();
+		List<MongoCredential> credentialsList = new ArrayList<MongoCredential>();
+
+		List<ServerAddress> addresses = new ArrayList<ServerAddress>();
+		for (int i=0;i<host.size();i++) {
+			String ip=host.get(i);
+			int mongoPort=port.get(i);
+			ServerAddress address = new ServerAddress(ip, mongoPort);
+			addresses.add(address);
+		}
+		builder = new MongoClientOptions.Builder();
+		builder.threadsAllowedToBlockForConnectionMultiplier(10);
+		mongoClientOptions = builder.build();
+		credentialsList = new ArrayList<MongoCredential>();
+		credentialsList
+				.add(MongoCredential.createScramSha1Credential("gzds", "rfid", "gzds-123321".toCharArray()));
+		MongoClient client = new MongoClient(addresses, credentialsList, mongoClientOptions);
+		 
+		/* 通过listDatabaseNames()方法可以返回一个mongo遍历器，此处还可以使用getDatabaseNames()方法，他返回的是一个类型为String的list集合，*/
+		MongoIterable<String> l = client.listDatabaseNames();
+		
+		Iterator<String> it = l.iterator();
+		while (it.hasNext()) {
+		System.out.println(it.next());
+		}
+		
+		final ClientSession clientSession = client.startSession();
+		
+			try {
+			    clientSession.startTransaction();
+			  /*  UserDO e = new UserDO();
+				e.setPassword("xxx");
+				e.setPhone("xxxxx");
+				
+				Document d=Document.parse(new JSONObject(e).toString());
+				client.getDatabase("render_system").getCollection("user_info")
+			      .withWriteConcern(WriteConcern.MAJORITY).insertOne(clientSession, d);*/
+				
+				//int i=1/0;
+				
+				/*client.getDatabase("render_system").getCollection("department")
+			      .withWriteConcern(WriteConcern.MAJORITY).insertOne(clientSession, new Document("xyz", 0));*/
+				
+				//筛选条件
+				Bson filter = Filters.eq("_id", new ObjectId("61c9628f6d9b2808446064a5"));
+				//需改内容
+				Document document = new Document("$set", new Document("phone", 100));
+				//执行修改
+				client.getDatabase("render_system").getCollection("user_info")
+			      .withWriteConcern(WriteConcern.MAJORITY).updateOne(filter, document);
+				
+				//client.getDatabase("render_system").getCollection("department").deleteOne(new Document("id", new ObjectId("61c9628f6d9b2808446064a6")));
+				clientSession.commitTransaction();
+			} catch (Exception e) {
+			   // some error handling
+				e.printStackTrace();
+				clientSession.abortTransaction();
+			} finally {
+			   clientSession.close();
+			}
+	}
+	
+	public static MappingMongoConverter mappingMongoConverter(MongoDbFactory factory) {
+		DbRefResolver dbRefResolver = new DefaultDbRefResolver(factory);
+		MappingMongoConverter mappingConverter = new MappingMongoConverter(dbRefResolver, new MongoMappingContext());
+		mappingConverter.setTypeMapper(new DefaultMongoTypeMapper(null));
+		return mappingConverter;
+	}
+}
